@@ -13,10 +13,15 @@ def parse_message(message):
             i += 1
             break
         *_, last = parsed.items()
-        if last[1] is None: # Incomplete parse from earlier
-            parsed[last[0]] = tokens[i]
+        # FIXME: Have to account for multiple same keys
+        if last[1] is None or isinstance(last[1], list): # Incomplete parse from earlier
+            if isinstance(last[1], list):
+                parsed[last[0]].append(tokens[i])
+            else:
+                parsed[last[0]] = tokens[i]
         else: # Last parse was complete, just insert
-            parsed[tokens[i]] = None
+            if tokens[i] not in parsed:
+                parsed[tokens[i]] = None
     if i < len(tokens):
         return (parsed, '\\' + '\\'.join(tokens[i:]) + '\\')
     return (parsed, '');

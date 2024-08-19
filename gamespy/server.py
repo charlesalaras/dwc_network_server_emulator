@@ -1,5 +1,29 @@
+"""DWC Network Server Emulator
+
+    Copyright (C) 2014 polaris-
+    Copyright (C) 2014 ToadKing
+    Copyright (C) 2014 AdmiralCurtiss
+    Copyright (C) 2014 msoucy
+    Copyright (C) 2015 Sepalani
+    Copyright (C) 2024 Charles Alaras
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import asyncio
 import logging
+import string
 import ast
 
 import query
@@ -30,11 +54,11 @@ class GameStatsServer(TCPServer):
         super().__init__(ip, port, log_cfg)
         
         self.db = GSDatabase()
-        self.remaining_message = ""
+        self.remaining = ""
     async def handle_action(reader, writer):
         """ CONNECTION RECEIVED """
         # Generate a random challenge string (for first time users only)
-        self.challenge = generate_random_str(10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        self.challenge = rand_str(10, string.ascii_uppercase)
         msg = query.create_message({
             '__cmd__': 'lc',
             '__cmd_val__': '1',
@@ -47,17 +71,17 @@ class GameStatsServer(TCPServer):
         """ DATA RECEIVED """
         # FIXME: I'm not sure when we'll know we are finished, or when an EOF will be reached...
         data = await reader.read(-1)
-        self.remaining_message += data
+        self.remaining += data
 
         if "\\final\\" not in data:
             return # ? shouldn't this be running forever? jump back to data received?
 
         # Decrypt full message and reset remaining message
-        msg = str(self.crypt(self.remaining_message))
+        msg = str(self.crypt(self.remaining))
         self.data = msg
-        self.remaining_message = ""
+        self.remaining = ""
 
-        commands, self.remaining_message = query.parse_message(msg)
+        commands, self.remaining = query.parse_message(msg)
 
         # Use function jump table to execute correct command
         for data_parsed in commands:
@@ -71,7 +95,7 @@ class GameStatsServer(TCPServer):
         if 'gamename' in data:
             self.gameid = data['gamename']
 
-        self.session = generate_random_str(10)
+        self.session = rand_str(10)
 
         msg = query.create_message({
             '__cmd__': 'lc',
@@ -85,6 +109,16 @@ class GameStatsServer(TCPServer):
         writer.write(msg)
         await writer.drain()
     async def auth_parse(self, data, writer):
+        parsed_token = utils.parse_authtoken(data['authtoken'], self.db)
+
+        if 'lid' in data:
+            self.lid = data['lid']
+        uid, pid, gsbrcd, uniquenick = utils.login_profile_via_parsed_token(parsed_token, self.db)
+        if pid is not None:
+            # Successfully logged in or created account, continue creating session
+            sesskey = self.db.create_session(pid, '')
+            self.sessions[pid] = self
+            self.pid = int(pid)
         pass
     async def ka(self, data, writer):
         pass
@@ -105,8 +139,46 @@ class GameStatsServer(TCPServer):
 
         for i in range(end):
             output[i] ^= key[i % key_len]
-        pass
 
+        return output
+
+class PlayerSearchServer(TCPServer):
+    def __init__(address):
+        super.__init__()
+
+        self.db = "FIXME: DB GOES HERE"
+        self.address = address
+        self.remaining = ""
+    async def handle_action(reader, writer):
+        data = await reader.read(-1)
+
+        data = self.remaining + data
+        message, self.remaining = query.parse_message(data)
+
+        if message['__cmd__'] == 'otherslist':
+            self.otherslist(message, writer)
+        else:
+            throw RuntimeError("Could not parse command!")
+                
+        pass
+    def otherslist(self, data_parsed, writer):
+        # "The client sends a list with profile ids to the server to translate them into user nicks"
+
+        # "The server answers with a sequence of o+uniquenick pairs; one pair for each requested id of opids." Sort by profile ids of the parameter o. "Parameter oldone" terminates the sequence
+        res = {
+            '__cmd__': 'otherslist',
+            '__cmd_val__': '',
+        }
+
+        if 'numopids' in data_parsed and 'opids' in data_parsed:
+            numopids = int(data_parsed['numopids'])
+            opids = data_parsed['opids'].split('|')
+
+        res['oldone'] = ""
+        res = query.create_message(res)
+
+        otherslist
+    
 # Begin UDP Servers!
 
 # Not necessarily a "server"...
