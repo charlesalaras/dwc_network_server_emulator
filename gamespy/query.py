@@ -1,6 +1,6 @@
 def parse_message(message):
     tokens = message.split('\\')[1:-1]
-    if "final" not in tokens:
+    if 'final' not in tokens:
         raise RuntimeError("Message does not terminate, cannot parse.")
     if len(tokens) < 2: # No command supplied
         return (parsed, '\\' + '\\'.join(tokens[i:] + '\\'))
@@ -8,23 +8,21 @@ def parse_message(message):
     parsed['__cmd__'] = tokens[0]
     parsed['__cmd_val__'] = tokens[1]
     tokens = tokens[2:]
-    for i in range(0, len(tokens)):
-        if tokens[i] == 'final':
-            i += 1
-            break
-        *_, last = parsed.items()
-        # FIXME: Have to account for multiple same keys
-        if last[1] is None or isinstance(last[1], list): # Incomplete parse from earlier
-            if isinstance(last[1], list):
-                parsed[last[0]].append(tokens[i])
+    remaining = ''
+    complete = tokens[-1] == 'final'
+    if not complete:
+        remaining_tokens = tokens[tokens.index('final') + 1:]
+        tokens = tokens[:tokens.index('final')]
+        remaining = '\\' + '\\'.join(remaining_tokens) + '\\'
+    for key, value in zip(*[iter(tokens)]*2):
+        if key in parsed.keys():
+            if isinstance(parsed[key], list):
+                parsed[key] = parsed[key].append(value)
             else:
-                parsed[last[0]] = tokens[i]
-        else: # Last parse was complete, just insert
-            if tokens[i] not in parsed:
-                parsed[tokens[i]] = None
-    if i < len(tokens):
-        return (parsed, '\\' + '\\'.join(tokens[i:]) + '\\')
-    return (parsed, '');
+                parsed[key] = [parsed[key], value]
+        else:
+            parsed[key] = value
+    return (parsed, remaining)
 
 def create_message(messages):
     query = ""
