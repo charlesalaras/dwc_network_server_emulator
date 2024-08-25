@@ -234,3 +234,6 @@ test*.py
 .private/*
 logs/*
 adminpageconf.json
+
+# Virtual Env
+env/*
