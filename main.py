@@ -1,5 +1,5 @@
 import gamespy.server
-
+import dashboard
 import threading
 
 if __name__ == "__main__":
@@ -10,3 +10,6 @@ if __name__ == "__main__":
     ]
     for server in servers:
         threading.Thread(target=server().start).start()
+
+    app = dashboard.Dashboard()
+    app.run()
