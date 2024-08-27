@@ -2,9 +2,9 @@ def parse_message(message):
     tokens = message.split('\\')[1:-1]
     if 'final' not in tokens:
         raise RuntimeError("Message does not terminate, cannot parse.")
+    parsed = {}
     if len(tokens) < 2: # No command supplied
         return (parsed, '\\' + '\\'.join(tokens[i:] + '\\'))
-    parsed = {}
     parsed['__cmd__'] = tokens[0]
     parsed['__cmd_val__'] = tokens[1]
     tokens = tokens[2:]
@@ -25,11 +25,23 @@ def parse_message(message):
     return (parsed, remaining)
 
 def create_message(messages):
+    list_stack = []
     query = ""
-    for key in messages:
-        if key != '__cmd__' and key != '__cmd_val__':
-            query += '\\' + str(key)
-        query += '\\' + str(messages[key])
+    for key, value in messages:
+        if not isinstance(value, list):
+            if key != '__cmd__' and key != '__cmd_val__':
+                query += '\\' + str(key)
+            query += '\\' + str(value)
+        else:
+            if list_stack and len(value) != len(list_stack[0]):
+                interleaved_list = [val for tup in zip(*list_stack) for val in tup]
+                query += '\\' + '\\'.join(interleaved_list)
+                list_stack = []
+            list_stack.append([(key, item) for item in value])
+    if list_stack:
+        for i in list_stack:
+            query += '\\' + '\\'.join(i)
     query += '\\final\\'
 
     return query
+# If stack is empty

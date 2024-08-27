@@ -1,0 +1,23 @@
+LoginScreen {
+	align: center middle;
+}
+#login {
+	width: 50%;
+	height: 50%;
+	padding: 2;
+	border: thick $background 80%;
+	background: $surface;
+}
+ModalScreen {
+	align: center middle;
+}
+#modal {
+	width: 50%;
+	height: 50%;
+	padding: 2;
+	border: thick $background 80%;
+	background: $surface;
+}
+Input {
+	width: 2fr;
+}
