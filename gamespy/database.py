@@ -27,6 +27,7 @@ import os
 import utils
 import json
 import time
+import string
 from hashlib import pbkdf2_hmac
 
 class ServerDatabase(BaseManager):
@@ -194,8 +195,7 @@ class GSDatabase:
             aim       = ""
             # Iterations are low since security is not too big of a concern here?
             # NOTE: If you're erroring out here, your Python 3.12+ wasn't compiled with OpenSSL.
-            dk = pbkdf2_hmac('sha256', password.encode(), self.salt, 100_000)
-            password = dk.hex()
+            password = utils.hash_str(password)
 
             # Ugly code incoming
             with Transaction(self.conn) as tx:
@@ -311,7 +311,7 @@ class GSDatabase:
             row = tx.query("SELECT profileid FROM sessions WHERE loginticket = ?", (loginticket,))
 
         profileid = -1
-        if r:
+        if row:
             profileid = int(row[0])
 
         return profileid
@@ -322,11 +322,13 @@ class GSDatabase:
         if profileid:
             with Transaction
     def generate_key(self, min_size):
-        # FIXME:  generating a non-duplicate key without having to reroll the key
-        # Maybe secret ensures uniqueness?
-        
-        pass
+        session_key = utils.register_rand(min_size, string.digits)
+        return session_key
     def delete_session(self, profileid):
+        with Transaction(self.conn) as tx:
+            row = tx.query("SELECT session FROM sessions WHERE profileid = ?", (profileid,), "one")
+        if row:
+            utils.deregister_rand(str(row[0]))
         with Transaction(self.conn) as tx:
             tx.mut_query("DELETE FROM sessions WHERE profileid = ?", (profileid,))
     def create_session(self, profileid, loginticket):
@@ -389,8 +391,7 @@ class GSDatabase:
             
     def generate_authtoken(self, userid, data):
         size = 80
-        # FIXME: better duplication check
-        """ Something should happen here!!"""
+        authtoken = "NDS" + utils.register_rand(size)
 
         with Transaction(self.conn) as tx:
             row = tx.query("SELECT * FROM nas_logins WHERE userid = ?", (userid,))
