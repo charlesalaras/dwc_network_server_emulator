@@ -29,18 +29,23 @@ class PlayerSearchServer(TCPServer):
             '__cmd_val__': '',
         }
         # Note: check that these exist
-        numopids = int(data_parsed['numopids'])
-        opids = data_parsed['opids'].split('|')
+        if "numopids" in data_parsed.keys() and "opids" in data_parsed.keys():
+            numopids = int(data_parsed['numopids'])
+            opids = data_parsed['opids'].split('|')
         # Error out if numopids doesn't match, realistically is never checked though...
-        res['user_list'] = []
-        for opid in opids:
-            profile = self.db.profileid(opid)
+        else:
+            raise ValueError("OPIDs not found in list")
+        res['o'] = []
+        res['uniquenick'] = []
+        for profileid in opids:
+            profile = self.db.get_profile(profileid)
+            res['o'].append(opid)
             if profile is not None:
-                res['user_list'].append({ 'o': opid, 'uniquenick': profile['uniquenick']})
+                res['uniquenick'].append(profile['uniquenick'])
             else:
-                res['user_list'].append({ 'o': opid, 'uniquenick': ''})
+                res['uniquenick'].append('')
 
-        res['oldone'] = ""
+        res['oldone'].append("")
         msg = query.create_message(res)
 
         writer.write(msg)
